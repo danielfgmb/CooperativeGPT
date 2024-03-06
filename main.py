@@ -35,7 +35,7 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
     actions = None
 
     # Define bots number of steps per action
-    rounds_count, steps_count, max_rounds = 0, 0, 100
+    rounds_count, steps_count, max_rounds = 0, 0, 3
     bots_steps_per_agent_move = 2
 
     # Get the initial observations and environment information
