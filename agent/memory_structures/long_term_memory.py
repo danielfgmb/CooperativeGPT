@@ -10,6 +10,10 @@ from utils.time import str_to_timestamp
 from utils.logging import CustomAdapter
 from utils.llm import CustomEmbeddingFunction
 
+import logging
+from utils.logging import CustomAdapter
+
+
 class LongTermMemory:
     """Class for long term memory. Memories are stored in the chromadb database.
     """
@@ -80,7 +84,7 @@ class LongTermMemory:
             metadata["timestamp"] = str_to_timestamp(created_at, self.date_format)
 
 
-        self.logger.info(f"Adding memory to long term memory, Metadata: {metadata}. Memory: {memory}")
+        self.logger.info(f"DAN5 Adding memory to long term memory, Metadata: {metadata}. Memory: {memory}")
         # Check if memory is a list
         if isinstance(memory, list):
             self.collection.add(documents=memory, metadatas=metadata, ids=[str(uuid.uuid4()) for _ in range(len(memory))])
@@ -105,6 +109,9 @@ class LongTermMemory:
         memories = results['documents'][0] if results['documents'] else []
         if return_metadata:
             return memories, results['metadatas'][0] if results['metadatas'] else []
+        
+
+        self.logger(f'DAN 4\nQuery : {query} \nMemories: {str(memories)}')
         
         return memories
     

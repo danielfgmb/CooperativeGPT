@@ -19,6 +19,8 @@ from utils.queue_utils import list_from_queue
 from utils.logging import CustomAdapter
 from utils.time import str_to_timestamp
 
+
+
 # Define a custom type to determine the congnitive modules to use
 Mode = Union[Literal['normal'], Literal['cooperative']]
 
@@ -71,6 +73,9 @@ class Agent:
             self.ltm.load_memories_from_scene(scene_path = start_from_scene, agent_name=name)
             self.stm.load_memories_from_scene(scene_path = start_from_scene, agent_name=name)
 
+        # TODO: Eliminar solo es para poder entender bien
+        
+
     def move(self, observations: list[str], agent_current_scene:dict, changes_in_state: list[tuple[str, str]], game_time: str, agent_reward: float = 0, agent_is_out:bool = False) -> Queue:
         """Use all the congnitive sequence of the agent to decide an action to take
 
@@ -98,8 +103,13 @@ class Agent:
             return step_actions
 
         #Updates the position of the agent in the spatial memory 
+        self.logger.info(f'2.1DANFER TO IMITATE (.move) (update_current_scene parameters):\n agent_current_scene: {str(agent_current_scene)} ')
+
         self.spatial_memory.update_current_scene(agent_current_scene['global_position'], agent_current_scene['orientation'],\
                                                     agent_current_scene['observation'])
+        
+        self.logger.info(f'2.1DANFER TO IMITATE (.move) (perceive parameters): {observations} {changes_in_state} ')
+
         react, filtered_observations, state_changes = self.perceive(observations, changes_in_state, game_time, agent_reward)
 
         
@@ -167,6 +177,7 @@ class Agent:
         Returns:
             tuple[bool, list[str], list[str]]: Tuple with True if the agent should react to the observation, False otherwise, the filtered observations and the changes in the state of the environment.
         """
+
         action_executed = self.stm.get_memory('current_action')
         if is_agent_out:
             memory = create_memory(self.name, game_time, action_executed, [], reward, observations, self.spatial_memory.position, self.spatial_memory.get_orientation_name(), True)
@@ -180,6 +191,8 @@ class Agent:
         # Observations are filtered to only store the closest ones. The att_bandwidth defines the number of observations that the agent can attend to at the same time
         sorted_observations = self.spatial_memory.sort_observations_by_distance(observations)
         observations = sorted_observations[:self.att_bandwidth]
+
+        
 
         # Update the agent known agents
         update_known_agents(observations, self.stm)

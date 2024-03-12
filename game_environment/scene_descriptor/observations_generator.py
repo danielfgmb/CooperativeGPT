@@ -20,6 +20,9 @@ from utils.logging import CustomAdapter
 logger = logging.getLogger(__name__)
 logger = CustomAdapter(logger)
 
+# for recreate in NB
+import turbo_broccoli as tb
+
 
 class ObservationsGenerator (object):
     """
@@ -37,6 +40,7 @@ class ObservationsGenerator (object):
             players_names (list): List with the names of the players
             substrate_name (str): Name of the substrate
         """
+        self.xd = []
         
         self.global_map = global_map
         self.players_names = players_names
@@ -88,14 +92,19 @@ class ObservationsGenerator (object):
         Description: Returns a dictionary with the descriptions of the observations of the agents
 
         Args:
+            # TODO: No es un STR es un dict
             agents_observations_str (str): Observations of the agents in ascci format
             agents_observing (list[str]): List of the agents that are observing and didn't take an action
             
         Returns:
             dict[str, list[str]]: Dictionary with the descriptions of the observations in a list by agent name
         """
+        logger.info(f'DF5 N4 main->level_playin_utils.py->get_obeservations_by_player()->observations_generator.py -> get_all_observations__descriptions()')
+        
+        logger.info(f'Called agents_observations_str: {agents_observations_str}')
         agents_observations = ast.literal_eval(agents_observations_str)
         observations_description_per_agent = {}
+        # TODO: Por el tipo de llamada para cada agente se repite muchas veces
         for agent_name, agent_dict in agents_observations.items():
             observations_description_per_agent[agent_name] = self.get_observations_per_agent(agent_dict, agent_name, True)
 
@@ -116,6 +125,7 @@ class ObservationsGenerator (object):
         Returns:
             list: List with the descriptions of the observations of the agent
         """
+        logger.info(f'DF6 N4 main->level_playin_utils.py->get_obeservations_by_player()->observations_generator.py -> get_all_observations__descriptions()->get observations per agent')
         list_of_observations = []
         if agent_dict['observation'].startswith('There are no observations: You were attacked'):
             list_of_observations.append(str(agent_dict['observation'] + ' At position {}'.format(agent_dict['global_position'])))
@@ -175,6 +185,7 @@ class ObservationsGenerator (object):
         Returns:
             list: List of tuples with the descriptions of the observed changes of the agent and the game time
         """
+        logger.info(f'DF5 N3 main->level_playin_utils.py->get_obeservations_by_player()->get_observed_changes_per_agent()')
         observations = self.observed_changes[agent_name]
         self.observed_changes[agent_name] = []
         return observations
@@ -208,6 +219,24 @@ class ObservationsGenerator (object):
             i+=1
 
         return agents_observed
+    
+    
+    def get_trees_descriptions_2(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int, local_tree_elements, global_trees):
+        
+        dic_xd = {}
+        
+        dic_xd["local_map"] = local_map
+        dic_xd["local_position"] = local_position
+        dic_xd["global_position"] = global_position
+        dic_xd["agent_orientation"] = agent_orientation
+        dic_xd["local_tree_elements"] = local_tree_elements
+        dic_xd["global_trees"] = global_trees
+
+        self.xd.append(dic_xd)
+        tb.save_json(self.xd, "get_trees_description_input.json")
+        pass
+
+
 
     def get_trees_descriptions(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int):
         """
@@ -222,9 +251,14 @@ class ObservationsGenerator (object):
         Returns:
             list: List with the descriptions of the trees observed by the agent
         """
+        
+
+        logger.info(f'DF6 N3 main->level_playin_utils.py->get_obeservations_by_player()->get_trees_descriptions()')
         tree_elements = ['A', 'G']
         elements_to_find = tree_elements + self.other_players_symbols + [self.self_symbol]
         local_tree_elements = connected_elems_map(local_map, elements_to_find=elements_to_find)
+
+        self.get_trees_descriptions_2(local_map, local_position, global_position, agent_orientation, local_tree_elements, self.global_trees)
         list_trees_observations = []
         trees_observed = {}
         for global_tree_id, global_tree_data in self.global_trees.items():
@@ -271,6 +305,7 @@ class ObservationsGenerator (object):
             if apple_count > 0 or grass_count > 0:      
                 list_trees_observations.append("Observed tree {} at position {}. This tree has {} apples remaining and {} grass for apples growing on the observed map. The tree might have more apples and grass on the global map."
                                                 .format(global_tree_id, list(global_tree_data['center']), apple_count, grass_count))
+        logger.info(f'LIST TREE OBSERVATIONS {str(list_trees_observations)}')
         return list_trees_observations
     
     def get_matrix(self, map) -> np.array:

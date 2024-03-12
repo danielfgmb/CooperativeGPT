@@ -31,11 +31,12 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
     Returns:
         None
     """
+    logger.info(f'DF1 N1 main')
     global rounds_count
     actions = None
 
     # Define bots number of steps per action
-    rounds_count, steps_count, max_rounds = 0, 0, 3
+    rounds_count, steps_count, max_rounds = 0, 0, 1
     bots_steps_per_agent_move = 2
 
     # Get the initial observations and environment information
@@ -44,18 +45,32 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
     env.step(actions)
     
     while rounds_count < max_rounds and not condition_to_end_game(substrate_name, env.get_current_global_map()):
+        logger.info(f'DF2 N1 main->while rounds')
+        logger.info(f' 1DAN -> Start while round_counts {str(rounds_count)} < {str(max_rounds)} max_rounds')
         # Reset the actions for each agent
         actions = {player_name: default_agent_actions_map() for player_name in env.player_prefixes}
         # Execute an action for each agent on each step
         for agent in agents:
+            logger.info(f'DF3 N1 main->while rounds->for agent')
+            logger.info(f' Agent {str(agent.name)} ')
             # Helps to define the dynamic number of bot steps per action as acumulated number
             accumulated_steps = 0
 
             #Updates the observations for the current agent
+            logger.info(f' 2DAN -> called get_observations by player')
+
+
+            # TODO: Modificadooo 1
+            logger.info(f'1.1DANFER TO IMITATE:\n Agent: {str(agent)}')
+
             all_observations =  env.get_observations_by_player(agent.name)
             observations = all_observations['curr_state']
             scene_description = all_observations['scene_description']
             state_changes = all_observations['state_changes']
+            logger.info(f'1.2DANFER TO IMITATE:\n Observations: {str(observations)} \n Scene_Description: {str(scene_description)} \n State_Changes: {str(state_changes)}')
+            # end
+
+            logger.info(f' 3DAN -> {str(scene_description)}')
             # Get the current observations and environment information
             game_time = env.get_time()
             logger.info("\n\n" + f"Agent's {agent.name} turn".center(50, '#') + "\n")

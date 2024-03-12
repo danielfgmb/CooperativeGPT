@@ -544,7 +544,10 @@ class Game:
         Returns:
             A dictionary with the observations of the player
         """
+        logger.info(f'DF4 N2 main->level_playin_utils.py->get_obeservations_by_player()')
+        logger.info(f'XD1 {str(self.curr_scene_description)}')
         curr_state = self.observationsGenerator.get_all_observations_descriptions(str(self.curr_scene_description).strip())[player_prefix]
+
         scene_description = self.curr_scene_description[player_prefix]
         if (check_agent_out_of_game(curr_state)):
             state_changes = []
