@@ -50,6 +50,131 @@ class ObservationsGenerator (object):
         elif self.substrate_name == 'clean_up':
             self.river_bank =  connected_elems_map(self.global_map, ['=','+']) # Chars that represent the river bank
             self.apple_field_edge = connected_elems_map(self.global_map, ['^','T']) # Chars that represent the apple field edge
+    
+
+    # START NEW METHODS
+            
+    def tree_dic(global_trees, local_tree_elements,matrix):
+
+        present_trees = {}
+        dic_apples = {}
+        dic_grass = {}
+        
+        for key in local_tree_elements:
+            elements_set = set(local_tree_elements[key]["elements"][0])
+            is_tree = False
+            for key2 in global_trees:
+                if len(elements_set.intersection(global_trees[key2]["elements"][0])) > 0:
+                    is_tree = True
+                    print(f'is tree {key} {key2}')
+                    present_trees[key2] = []
+                    for x, y in local_tree_elements[key]["elements"]:
+                        if matrix[x][y] == "A":
+                            present_trees[key2].append([x,y])
+                            dic_apples[(x,y)] = key2
+                        if matrix[x][y] == "G":
+                            present_trees[key2].append([x,y])
+                            dic_grass[(x,y)] = key2
+                    break
+        
+        return present_trees, dic_apples, dic_grass
+    
+    def n_thresholds(n):
+        if n >= 5:
+            return "far"
+        if n >= 3:
+            return "normal"
+        if n >= 2:
+            return "close" 
+        if n >= 1:
+            return "very close"
+
+    def set_positions(x, y, max_x, max_y):
+        positions = []
+        for i in range(len(x)):
+            if x[i] >= 0 and x[i] <= max_x and y[i] >= 0 and y[i] <= max_y:
+                positions.append((x[i],y[i]))
+        return set(positions)
+
+    def rhombus_recorrido(center, n, matrix):
+        max_i = len(matrix)-1
+        max_j = len(matrix[0])-1
+
+        i_center, j_center = center
+
+        left_j = list(range(j_center-n,j_center+1))
+        right_j = list(range(j_center,j_center+n+1))
+
+        upper_i = list(range(i_center-n,i_center+1))
+        bottom_i = list(range(i_center,i_center+n+1))
+
+        # left upper segment
+        left_upper = ObservationsGenerator.set_positions(upper_i[::-1], left_j, max_i, max_j)
+        # left bottom
+        left_bottom = ObservationsGenerator.set_positions(bottom_i, left_j, max_i, max_j)
+        # right upper
+        right_upper = ObservationsGenerator.set_positions(upper_i, right_j, max_i, max_j)
+        # right bottom
+        right_bottom = ObservationsGenerator.set_positions(bottom_i[::-1], right_j, max_i, max_j)
+
+        return left_upper.union(left_bottom, right_upper, right_bottom)
+    
+
+    
+    
+
+    # TODO: Cuando esté en el repo quitar los parámetros que provienen de tener la info del objeto
+    def get_trees_and_agents_descriptions(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int):
+
+        max_vision_range_apples = 2
+        max_vision_range_agents = 5
+
+        descriptions = []
+        matrix = [  [*row]  for row in local_map.split("\n")  ]
+
+        tree_elements = ['A', 'G']
+        elements_to_find = tree_elements + self.other_players_symbols + [self.self_symbol]
+        local_tree_elements = connected_elems_map(local_map, elements_to_find=elements_to_find)
+
+        # Assert Error
+        if matrix[local_position[0]][local_position[1]] != "#":
+            return []
+
+        max_nx = int(len(matrix)/2)+1
+        max_ny = int(len(matrix[0])/2)+1
+
+        max_n = (max([max_nx,max_ny]) + 1 )*2 
+
+        present_trees, dic_apples, dic_grass = ObservationsGenerator.tree_dic(self.global_trees, local_tree_elements,matrix)
+            
+        dic_visited = {}
+                    
+        for key in present_trees:
+            dic_visited[key] = False
+
+        for n in range(max_n+1):
+            recorrido = ObservationsGenerator.rhombus_recorrido(local_position, n, matrix)
+            for i, j in recorrido:
+                if re.match(r'^[0-9]$', matrix[i][j]):
+                    descriptions.append(f"Observing agent {self.players_names[int(matrix[i][j])]} in a {ObservationsGenerator.n_thresholds(n)} distance to me.")
+                if (i,j) in dic_apples:
+                    if dic_visited[dic_apples[(i,j)]] == False:
+                        if n > 2:
+                            descriptions.append(f"Observing a the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                        else:
+                            descriptions.append(f"Currently under the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                        dic_visited[dic_apples[(i,j)]] = True
+
+                if matrix[i][j] == "A" and n<=max_vision_range_apples:
+                    descriptions.append(f"Currently observing an apple in a {ObservationsGenerator.n_thresholds(n)} distance to me, that apple belongs to tree {dic_apples[(i,j)]}.")
+        
+        return descriptions
+
+
+        
+
+                
+    # END NEW METHODS
 
 
     def get_element_global_pos(self, el_local_pos, self_local_pos, self_global_pos, agent_orientation=0) -> list[int]:
@@ -132,17 +257,25 @@ class ObservationsGenerator (object):
 
 
             if self.substrate_name == 'commons_harvest_open':
+                # TODO: New code
                 # Get trees descriptions
-                trees_descriptions = self.get_trees_descriptions(local_observation_map, local_map_position, global_position, agent_orientation) 
-                list_of_observations.extend(trees_descriptions)
+                #trees_descriptions = self.get_trees_descriptions(local_observation_map, local_map_position, global_position, agent_orientation) 
+                #list_of_observations.extend(trees_descriptions)
+                descriptions = self.get_trees_and_agents_descriptions(local_observation_map, local_map_position, global_position, agent_orientation) 
+                list_of_observations.extend(descriptions)
+
             elif self.substrate_name == 'clean_up':
                 # Get objects of clean up descriptions
                 items_descriptions = self.get_clean_up_descriptions(local_observation_map, local_map_position, global_position, agent_orientation)
+
+                # TODO: revisar
+                agents_observed = self.get_agents_observed(local_observation_map, local_map_position, global_position, agent_orientation)
                 list_of_observations.extend(items_descriptions)
+                list_of_observations.extend(agents_observed)
 
             # Get agents observed descriptions
-            agents_observed = self.get_agents_observed(local_observation_map, local_map_position, global_position, agent_orientation)
-            list_of_observations.extend(agents_observed)
+            #agents_observed = self.get_agents_observed(local_observation_map, local_map_position, global_position, agent_orientation)
+            #list_of_observations.extend(agents_observed)
         
         return list_of_observations
     
@@ -179,99 +312,7 @@ class ObservationsGenerator (object):
         self.observed_changes[agent_name] = []
         return observations
     
-    def get_agents_observed(self, local_observation_map: str, local_map_position: tuple, global_position: tuple, agent_orientation: int) -> list[str]:
-        """
-        Returns a list with the descriptions of the agents observed by the agent
-
-        Args:
-            local_observation_map (str): Local map in ascci format
-            local_map_position (tuple): Local position of the agent in the observed window
-            global_position (tuple): Global position of the agent
-            agent_orientation (int): Orientation of the agent
-
-        Returns:
-            list[str]: List with the descriptions of the agents observed by the agent
-        """
-
-        agents_observed = []
-
-        i = 0
-        for row in local_observation_map.split('\n'):
-            j=0
-            for char in row:
-                if re.match(r'^[0-9]$', char):
-                    agent_id = int(char)
-                    agent_name = self.players_names[agent_id]
-                    agent_global_pos = self.get_element_global_pos((i,j), local_map_position, global_position, agent_orientation)
-                    agents_observed.append("Observed agent {} at position {}.".format(agent_name, agent_global_pos))
-                j+=1
-            i+=1
-
-        return agents_observed
-
-    def get_trees_descriptions(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int):
-        """
-        Description: Returns a list with the descriptions of the trees observed by the agent
-
-        Args:
-            local_map (str): Local map in ascci format
-            local_position (tuple): Local position of the agent
-            global_position (tuple): Global position of the agent
-            agent_orientation (int): Orientation of the agent
-            
-        Returns:
-            list: List with the descriptions of the trees observed by the agent
-        """
-        tree_elements = ['A', 'G']
-        elements_to_find = tree_elements + self.other_players_symbols + [self.self_symbol]
-        local_tree_elements = connected_elems_map(local_map, elements_to_find=elements_to_find)
-        list_trees_observations = []
-        trees_observed = {}
-        for global_tree_id, global_tree_data in self.global_trees.items():
-            apple_count, grass_count = 0, 0
-            apple_list, grass_list = [], []
-            for local_tree_data in local_tree_elements.values():
-                # Check if the group is a tree element
-                first_element = local_tree_data['elements'][0]
-                element_type = local_map.split('\n')[first_element[0]][first_element[1]]
-                second_element_type = None
-                if len(local_tree_data['elements'])>1: # We'll make a double check to verify if the first elelment is being overlapped by another element
-                    second_element = local_tree_data['elements'][1] 
-                    second_element_type = local_map.split('\n')[second_element[0]][second_element[1]]
-                if (element_type not in tree_elements) and (second_element_type not in tree_elements):
-                    continue
-
-                # Continue if the tree has already been observed
-                if global_tree_id in trees_observed.get(element_type, []): 
-                    continue
-
-                local_tree_center = local_tree_data['center']
-                local_center_real_pos = self.get_element_global_pos(local_tree_center, local_position, global_position, agent_orientation)
-
-                # Check if the local tree corresponds to the global tree
-                if local_center_real_pos not in global_tree_data['elements']:
-                    continue
-
-                # Find the cluster tree of the local tree
-                trees_observed[element_type] = trees_observed.get(element_type, []) + [global_tree_id]
     
-                for apple in local_tree_data['elements']:
-                    apple_global_pos = self.get_element_global_pos(apple, local_position, global_position, agent_orientation)
-                    if local_map.split('\n')[apple[0]][apple[1]] == 'G':
-                        list_trees_observations.append("Observed grass to grow apples at position {}. This grass belongs to tree {}."
-                                                    .format(apple_global_pos, global_tree_id))
-                        grass_list.append(apple_global_pos)
-                        grass_count += 1
-                    elif local_map.split('\n')[apple[0]][apple[1]] == 'A':
-                        list_trees_observations.append("Observed an apple at position {}. This apple belongs to tree {}."
-                                                    .format(apple_global_pos, global_tree_id ))
-                        apple_list.append(apple_global_pos)
-                        apple_count += 1
-
-            if apple_count > 0 or grass_count > 0:      
-                list_trees_observations.append("Observed tree {} at position {}. This tree has {} apples remaining and {} grass for apples growing on the observed map. The tree might have more apples and grass on the global map."
-                                                .format(global_tree_id, list(global_tree_data['center']), apple_count, grass_count))
-        return list_trees_observations
     
     def get_matrix(self, map) -> np.array:
         """Convert a map in ascci format to a matrix
@@ -393,3 +434,105 @@ class ObservationsGenerator (object):
         p = inflect.engine()
         words = p.number_to_words(number)
         return words
+    
+    """
+    ===================================
+    DEPRECATED
+    ===================================
+    """
+
+    # DEPRECATED
+    def get_agents_observed(self, local_observation_map: str, local_map_position: tuple, global_position: tuple, agent_orientation: int) -> list[str]:
+        """
+        Returns a list with the descriptions of the agents observed by the agent
+
+        Args:
+            local_observation_map (str): Local map in ascci format
+            local_map_position (tuple): Local position of the agent in the observed window
+            global_position (tuple): Global position of the agent
+            agent_orientation (int): Orientation of the agent
+
+        Returns:
+            list[str]: List with the descriptions of the agents observed by the agent
+        """
+
+        agents_observed = []
+
+        i = 0
+        for row in local_observation_map.split('\n'):
+            j=0
+            for char in row:
+                if re.match(r'^[0-9]$', char):
+                    agent_id = int(char)
+                    agent_name = self.players_names[agent_id]
+                    agent_global_pos = self.get_element_global_pos((i,j), local_map_position, global_position, agent_orientation)
+                    agents_observed.append("Observed agent {} at position {}.".format(agent_name, agent_global_pos))
+                j+=1
+            i+=1
+
+        return agents_observed
+
+    # DEPRECATED
+    def get_trees_descriptions(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int):
+        """
+        Description: Returns a list with the descriptions of the trees observed by the agent
+
+        Args:
+            local_map (str): Local map in ascci format
+            local_position (tuple): Local position of the agent
+            global_position (tuple): Global position of the agent
+            agent_orientation (int): Orientation of the agent
+            
+        Returns:
+            list: List with the descriptions of the trees observed by the agent
+        """
+        tree_elements = ['A', 'G']
+        elements_to_find = tree_elements + self.other_players_symbols + [self.self_symbol]
+        local_tree_elements = connected_elems_map(local_map, elements_to_find=elements_to_find)
+        list_trees_observations = []
+        trees_observed = {}
+        for global_tree_id, global_tree_data in self.global_trees.items():
+            apple_count, grass_count = 0, 0
+            apple_list, grass_list = [], []
+            for local_tree_data in local_tree_elements.values():
+                # Check if the group is a tree element
+                first_element = local_tree_data['elements'][0]
+                element_type = local_map.split('\n')[first_element[0]][first_element[1]]
+                second_element_type = None
+                if len(local_tree_data['elements'])>1: # We'll make a double check to verify if the first elelment is being overlapped by another element
+                    second_element = local_tree_data['elements'][1] 
+                    second_element_type = local_map.split('\n')[second_element[0]][second_element[1]]
+                if (element_type not in tree_elements) and (second_element_type not in tree_elements):
+                    continue
+
+                # Continue if the tree has already been observed
+                if global_tree_id in trees_observed.get(element_type, []): 
+                    continue
+
+                local_tree_center = local_tree_data['center']
+                local_center_real_pos = self.get_element_global_pos(local_tree_center, local_position, global_position, agent_orientation)
+
+                # Check if the local tree corresponds to the global tree
+                if local_center_real_pos not in global_tree_data['elements']:
+                    continue
+
+                # Find the cluster tree of the local tree
+                trees_observed[element_type] = trees_observed.get(element_type, []) + [global_tree_id]
+    
+                for apple in local_tree_data['elements']:
+                    apple_global_pos = self.get_element_global_pos(apple, local_position, global_position, agent_orientation)
+                    if local_map.split('\n')[apple[0]][apple[1]] == 'G':
+                        list_trees_observations.append("Observed grass to grow apples at position {}. This grass belongs to tree {}."
+                                                    .format(apple_global_pos, global_tree_id))
+                        grass_list.append(apple_global_pos)
+                        grass_count += 1
+                    elif local_map.split('\n')[apple[0]][apple[1]] == 'A':
+                        list_trees_observations.append("Observed an apple at position {}. This apple belongs to tree {}."
+                                                    .format(apple_global_pos, global_tree_id ))
+                        apple_list.append(apple_global_pos)
+                        apple_count += 1
+
+            if apple_count > 0 or grass_count > 0:      
+                list_trees_observations.append("Observed tree {} at position {}. This tree has {} apples remaining and {} grass for apples growing on the observed map. The tree might have more apples and grass on the global map."
+                                                .format(global_tree_id, list(global_tree_data['center']), apple_count, grass_count))
+        return list_trees_observations
