@@ -19,6 +19,12 @@ from utils.queue_utils import list_from_queue
 from utils.logging import CustomAdapter
 from utils.time import str_to_timestamp
 
+from utils.queue_utils import new_empty_queue
+
+# TODO: Elimina DAGOMEZ
+# for recreate in NB
+import turbo_broccoli as tb
+
 # Define a custom type to determine the congnitive modules to use
 Mode = Union[Literal['normal'], Literal['cooperative']]
 
@@ -43,6 +49,12 @@ class Agent:
             prompts_folder (str, optional): Folder where the prompts are stored. Defaults to "base_prompts_v0".
             substrate_name (str, optional): Name of the substrate. Defaults to "commons_harvest_open".
         """
+
+        self.actions = new_empty_queue()
+
+        # TODO: Eliminar DAGOMEZ
+        self.xd = []
+
         self.logger = logging.getLogger(__name__)
         self.logger = CustomAdapter(self.logger)
 
@@ -299,10 +311,37 @@ class Agent:
         
         # Add the last reflection to the short term memory
         self.stm.add_memory(game_time, 'last_reflection')
-  
+    
+
+
+    # TODO: DAGOMEZ 12-3-2024 ELIMINAR
+        
+    
+        
+    def generate_new_actions2(self):
+        world_context = self.stm.get_memory('world_context')
+        agent_bio_str = self.stm.get_memory('bio_str')
+        current_plan = self.stm.get_memory('current_plan')
+        valid_actions = self.stm.get_memory('valid_actions') 
+        observations = self.stm.get_memory('current_observation') or 'None'
+        current_goals = self.stm.get_memory('current_goals')
+        reflections = self.ltm.get_memories(limit=10, filter={'type': 'reflection'})['documents']
+        reflections = '\n'.join(reflections) if len(reflections) > 0 else 'None'
+        #current_position = self.spatial_memory.position
+        known_trees = self.stm.get_memory('known_trees')
+        known_trees = "These are the known trees: "+' '.join([f"tree {tree[0]} with center at {tree[1]}" for tree in known_trees]) if known_trees else "There are no known trees yet"
+        #percentage_explored = self.spatial_memory.get_percentage_explored()
+
+        dic_xd = {"world_context":world_context,"agent_bio_str":agent_bio_str, "current_plan": current_plan, "valid_actions": valid_actions, "observations": observations, "current_goals":current_goals,  "reflections": reflections, "known_trees": known_trees}
+        self.xd.append(dic_xd)
+        tb.save_json(self.xd, "generate_new_actions.json")
+
+
+
 
 
     def generate_new_actions(self) -> None:
+        self.generate_new_actions2()
         """
         Acts in the environment given the observations, the current plan and the current goals.
         Stores the actions sequence in the short term memory.
@@ -393,3 +432,10 @@ class Agent:
         last_reward = self.stm.get_memory('last_reward')
         current_reward = self.stm.get_memory('current_reward')
         update_understanding_4(observations, self, self.stm.get_memory('game_time'), last_reward, current_reward, state_changes, understanding_umbral = self.understanding_umbral)
+
+    # TODO: Concurrent Planning DGOMEZ
+    def save_actions(self, actions):
+        self.actions = actions
+
+    def retrieve_actions(self):
+        return self.actions

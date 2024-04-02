@@ -9,6 +9,8 @@ from utils.logging import CustomAdapter
 logger = logging.getLogger(__name__)
 logger = CustomAdapter(logger)
 
+
+
 def actions_sequence(name:str, world_context:str, current_plan:str, reflections: str, current_observations:list[str]|str, current_position:tuple, valid_actions:list[str], current_goals: str, agent_bio: str = "", prompts_folder="base_prompts_v0", known_trees = "", explored_map = "0%", stm: ShortTermMemory = None) -> list[str]:
     """
     Description: Returns the actions that the agent should perform given its name, the world context, the current plan, the memory statements and the current observations

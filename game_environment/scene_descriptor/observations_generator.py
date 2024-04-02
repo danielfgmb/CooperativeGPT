@@ -160,14 +160,22 @@ class ObservationsGenerator (object):
                 if (i,j) in dic_apples:
                     if dic_visited[dic_apples[(i,j)]] == False:
                         if n > 2:
-                            descriptions.append(f"Observing a the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                            if (i,j) in dic_apples:
+                                descriptions.append(f"Observing the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                            else:
+                                logger.info(f'Error (1) en NEW descriptions DAGOMEZ apple in {(i,j)} not found')
                         else:
-                            descriptions.append(f"Currently under the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                            if (i,j) in dic_apples:
+                                descriptions.append(f"Currently under the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                            else:
+                                logger.info(f'Error (2) en NEW descriptions DAGOMEZ apple in {(i,j)} not found')
                         dic_visited[dic_apples[(i,j)]] = True
 
                 if matrix[i][j] == "A" and n<=max_vision_range_apples:
-                    descriptions.append(f"Currently observing an apple in a {ObservationsGenerator.n_thresholds(n)} distance to me, that apple belongs to tree {dic_apples[(i,j)]}.")
-        
+                    if (i,j) in dic_apples:
+                        descriptions.append(f"Currently observing an apple in a {ObservationsGenerator.n_thresholds(n)} distance to me, that apple belongs to tree {dic_apples[(i,j)]}.")
+                    else:
+                        logger.info(f'Error (2) en NEW descriptions DAGOMEZ apple in {(i,j)} not found')
         return descriptions
 
 

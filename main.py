@@ -13,6 +13,11 @@ from utils.queue_utils import new_empty_queue
 from utils.args_handler import get_args
 from utils.files import extract_players, persist_short_term_memories, create_directory_if_not_exists
 
+# TODO: Elimina DAGOMEZ
+# for recreate in NB
+import turbo_broccoli as tb
+xd = []
+
 # Set up logging timestamp
 logger_timestamp = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
 # load environment variables
@@ -20,6 +25,7 @@ load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 rounds_count = 0
+
 
 def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) -> None:
     """Main game loop. The game loop is executed until the game ends or the maximum number of steps is reached.
@@ -35,7 +41,7 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
     actions = None
 
     # Define bots number of steps per action
-    rounds_count, steps_count, max_rounds = 0, 0, 3
+    rounds_count, steps_count, max_rounds = 0, 0, 10
     bots_steps_per_agent_move = 2
 
     # Get the initial observations and environment information
@@ -66,15 +72,29 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
                 logger.info('Agent %s was taken out of the game', agent.name)
                 agent.move(observations, scene_description, state_changes, game_time, agent_reward, agent_is_out=True)
                 step_actions = new_empty_queue()
+                agent.save_actions(step_actions)
             else:
-                step_actions = agent.move(observations, scene_description, state_changes, game_time, agent_reward)
+                step_actions = agent.retrieve_actions()
+                if step_actions.empty():
+                    step_actions = agent.move(observations, scene_description, state_changes, game_time, agent_reward)
+                    agent.save_actions(step_actions)
+            i = 0
 
-
-            while not step_actions.empty():
+            if not step_actions.empty():
+                i+=1
                 step_action = step_actions.get()
+                # TODO: Borrar DAGOMEZ
+                
+                tb.save_json(xd, "step_actions.json")
                 # Update the actions map for the agent
-                actions[agent.name] = generate_agent_actions_map(step_action, default_agent_actions_map())
+                actions_map= generate_agent_actions_map(step_action, default_agent_actions_map())
+                env.check_if_eating_apple(actions_map, scene_description)
+
+                xd.append({"i":str(i),"step_action":step_action, "agent":agent.name, "actions_map":actions_map})
+                actions[agent.name] = actions_map
                 logger.info('Agent %s action map: %s', agent.name, actions[agent.name] )
+
+
 
                 # Execute a move for the bots
                 if env.bots:
@@ -93,6 +113,7 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
                 # Execute each step one by one until the agent has executed all the steps for the high level action
                 try:
                     env.step(actions)
+                    agent.save_actions(step_actions)
                     steps_count += 1
                     accumulated_steps += 1
                 except:

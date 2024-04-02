@@ -581,3 +581,6 @@ class Game:
     def get_current_global_map(self) -> dict:
         """Returns the current scene description."""
         return self.curr_global_map
+    
+    def check_if_eating_apple(self, actions_map,scene_description):
+        logger.info(f'actions map {actions_map}, curr_global_map {self.curr_global_map}, scene_description {scene_description}')
