@@ -29,3 +29,5 @@ tests/experiment_notebooks/experiment_architecture/results/*
 
 # Config
 config/start_variables.txt
+
+*.code-workspace

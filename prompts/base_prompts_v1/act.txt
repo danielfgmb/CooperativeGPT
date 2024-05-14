@@ -25,7 +25,7 @@ Define what should be the nex action for Laura get closer to achieve its goals f
 Remember that the current observations are ordered by closeness, being the first the closest observation and the last the farest one.
 Each action you determinate can only be one of the following, make sure you assign a valid position from the current observations and a valid name for each action:
 
-Valid actions: 
+Valid options: 
 <input8>
 
 Remember that going to positions near the edge of the portion of the map you are seeing will allow you to get new observations.
@@ -39,5 +39,5 @@ The output should be a markdown code snippet formatted in the following schema, 
     "Options: string \\ Which actions you could take to address both the opportunities ans the threats?
     "Consequences": string \\ What are the consequences of each of the options?
     "Final analysis: string \\ The analysis of the consequences to reason about what is the best action to take
-    "Answer": string \\ Must be one of the valid actions with the position replaced
+    "Selected Option": string \\ Should be just the letter of the option
 }```

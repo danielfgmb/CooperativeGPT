@@ -41,7 +41,7 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
     actions = None
 
     # Define bots number of steps per action
-    rounds_count, steps_count, max_rounds = 0, 0, 10
+    rounds_count, steps_count, max_rounds = 0, 0, 500
     bots_steps_per_agent_move = 2
 
     # Get the initial observations and environment information
@@ -62,6 +62,7 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
             observations = all_observations['curr_state']
             scene_description = all_observations['scene_description']
             state_changes = all_observations['state_changes']
+            position_descriptions = all_observations['position_descriptions']
             # Get the current observations and environment information
             game_time = env.get_time()
             logger.info("\n\n" + f"Agent's {agent.name} turn".center(50, '#') + "\n")
@@ -70,13 +71,13 @@ def game_loop(agents: list[Agent], substrate_name:str, persist_memories:bool) ->
             agent_reward = env.score[agent.name]
             if check_agent_out_of_game(observations):
                 logger.info('Agent %s was taken out of the game', agent.name)
-                agent.move(observations, scene_description, state_changes, game_time, agent_reward, agent_is_out=True)
+                agent.move(observations, scene_description, state_changes, position_descriptions, game_time, agent_reward, agent_is_out=True)
                 step_actions = new_empty_queue()
                 agent.save_actions(step_actions)
             else:
                 step_actions = agent.retrieve_actions()
                 if step_actions.empty():
-                    step_actions = agent.move(observations, scene_description, state_changes, game_time, agent_reward)
+                    step_actions = agent.move(observations, scene_description, state_changes, position_descriptions, game_time, agent_reward)
                     agent.save_actions(step_actions)
             i = 0
 

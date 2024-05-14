@@ -83,7 +83,7 @@ class Agent:
             self.ltm.load_memories_from_scene(scene_path = start_from_scene, agent_name=name)
             self.stm.load_memories_from_scene(scene_path = start_from_scene, agent_name=name)
 
-    def move(self, observations: list[str], agent_current_scene:dict, changes_in_state: list[tuple[str, str]], game_time: str, agent_reward: float = 0, agent_is_out:bool = False) -> Queue:
+    def move(self, observations: list[str], agent_current_scene:dict, changes_in_state: list[tuple[str, str]], position_descriptions:dict, game_time: str, agent_reward: float = 0, agent_is_out:bool = False) -> Queue:
         """Use all the congnitive sequence of the agent to decide an action to take
 
         Args:
@@ -93,6 +93,7 @@ class Agent:
                 -> orientation (int): Current orientation of the agent. 0: North, 1: East, 2: South, 3: West.
                 -> observation (str): ascii representation of the scene.
             changes_in_state (list[tuple[str, str]]): List of changes in the state of the environment and its game time.
+            position_descriptions (list[tuple[str, str]]): Dict with different positions descriptions for each agent to make personalize actiosn
             game_time (str): Current game time.
             agent_reward (float, optional): Current reward of the agent. Defaults to 0.
             agent_is_out (bool, optional): True if the agent is out of the scenario (was taken), False otherwise. Defaults to False.
@@ -117,11 +118,11 @@ class Agent:
         
         if react:
             self.plan()
-            self.generate_new_actions()
+            self.generate_new_actions(position_descriptions)
         
         self.reflect(filtered_observations)
         
-        step_actions = self.get_actions_to_execute()
+        step_actions = self.get_actions_to_execute(position_descriptions)
             
         return step_actions
     
@@ -335,12 +336,59 @@ class Agent:
         dic_xd = {"world_context":world_context,"agent_bio_str":agent_bio_str, "current_plan": current_plan, "valid_actions": valid_actions, "observations": observations, "current_goals":current_goals,  "reflections": reflections, "known_trees": known_trees}
         self.xd.append(dic_xd)
         tb.save_json(self.xd, "generate_new_actions.json")
+    
+
+    def generate_valid_actions(self,position_descriptions):
+        position_descriptions = position_descriptions[self.name]
+        valid_actions = []
+        letter_pos = 1
+        options = []
+        pos_l = []
+        for dic in position_descriptions:
+            valid_action = ""
+            print("JAJAJA",dic)
+            type_object = dic["type"]
+            if type_object == "Tree":
+                id_tree = dic["id"]
+                valid_action = f"Go near tree number {id_tree}"
+                pos =  ("M",dic["pos"][0],dic["pos"][1])
+
+            if type_object == "Agent":
+                id_agent = dic["id"]
+                # name agent
+                name = dic["name"]
+                valid_action= f"Inmobilize player {name}"
+                pos = ("I",name,dic["pos"][0],dic["pos"][1])
+            if type_object == "Apple":
+                tree = dic["tree"]
+                distance = dic["distance"]
+                # name agent
+                valid_action = f"Eat apple of tree {tree} at a distance of {distance} steps"
+                pos =  ("M",dic["pos"][0],dic["pos"][1])
+            if valid_action not in valid_actions and valid_action != "":
+                valid_actions.append(valid_action)
+                pos_l.append(pos)
+        
+        valid_actions.append(f"Explore: moves to a random position on the observed portion of the map.")
+        pos = tuple("E")
+        pos_l.append(pos)
+
+        valid_actions.append(f"Stay put: This action is to mantain the same position.")
+        pos = tuple("S")
+        pos_l.append(pos)
+
+        for i in range(len(valid_actions)):
+            valid_actions[i] = f"Option {chr(letter_pos+64)}: "+valid_actions[i]
+            options.append(chr(letter_pos+64))
+            letter_pos+=1
+        
+
+        return valid_actions, pos_l, options
 
 
 
 
-
-    def generate_new_actions(self) -> None:
+    def generate_new_actions(self,position_descriptions) -> None:
         self.generate_new_actions2()
         """
         Acts in the environment given the observations, the current plan and the current goals.
@@ -349,7 +397,7 @@ class Agent:
         world_context = self.stm.get_memory('world_context')
         agent_bio_str = self.stm.get_memory('bio_str')
         current_plan = self.stm.get_memory('current_plan')
-        valid_actions = self.stm.get_memory('valid_actions') 
+        #valid_actions = self.stm.get_memory('valid_actions') 
         observations = self.stm.get_memory('current_observation') or 'None'
         current_goals = self.stm.get_memory('current_goals')
         reflections = self.ltm.get_memories(limit=10, filter={'type': 'reflection'})['documents']
@@ -357,11 +405,13 @@ class Agent:
         current_position = self.spatial_memory.position
         known_trees = self.stm.get_memory('known_trees')
         known_trees = "These are the known trees: "+' '.join([f"tree {tree[0]} with center at {tree[1]}" for tree in known_trees]) if known_trees else "There are no known trees yet"
+
+        valid_actions, pos_l, options = self.generate_valid_actions(position_descriptions)
         percentage_explored = self.spatial_memory.get_percentage_explored()
         
         # Generate new actions sequence and add it to the short term memory
         actions_sequence_queue = actions_sequence(self.name, world_context, current_plan, reflections, observations,
-                                                  current_position, valid_actions, current_goals, agent_bio_str, self.prompts_folder,
+                                                  current_position, valid_actions, pos_l, options, current_goals, agent_bio_str, self.prompts_folder,
                                                   known_trees, percentage_explored, self.stm)
         self.logger.info(f'{self.name} generated new actions sequence: {actions_sequence_queue.queue}')
         
@@ -371,7 +421,7 @@ class Agent:
 
 
 
-    def get_actions_to_execute(self) -> Queue:
+    def get_actions_to_execute(self, position_descriptions) -> Queue:
         """
         Executes the current actions of the agent. 
         If the current gameloop is empty, it generates a new one.
@@ -385,7 +435,7 @@ class Agent:
 
             # If the actions sequence is empty, we generate actions sequence
             if self.stm.get_memory('actions_sequence').empty():
-                self.generate_new_actions()
+                self.generate_new_actions(position_descriptions)
 
             # We get next action from the actions sequence
             current_action = self.stm.get_memory('actions_sequence').get()

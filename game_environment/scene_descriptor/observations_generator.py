@@ -119,12 +119,74 @@ class ObservationsGenerator (object):
 
         return left_upper.union(left_bottom, right_upper, right_bottom)
     
-
-    
     
 
     # TODO: Cuando esté en el repo quitar los parámetros que provienen de tener la info del objeto
     def get_trees_and_agents_descriptions(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int):
+
+        max_vision_range_apples = 2
+        max_vision_range_agents = 5
+
+        position_descriptions = []
+        descriptions = []
+        matrix = [  [*row]  for row in local_map.split("\n")  ]
+
+        # TODO: Descomentar cuando esté en el programa y eliminar la otra linea
+        tree_elements = ['A', 'G']
+        elements_to_find = tree_elements + self.other_players_symbols + [self.self_symbol]
+        local_tree_elements = connected_elems_map(local_map, elements_to_find=elements_to_find)
+
+        # Assert Error
+        if matrix[local_position[0]][local_position[1]] != "#":
+            return []
+
+        max_nx = int(len(matrix)/2)+1
+        max_ny = int(len(matrix[0])/2)+1
+
+        max_n = (max([max_nx,max_ny]) + 1 )*3
+
+        present_trees, dic_apples, dic_grass = ObservationsGenerator.tree_dic(self.global_trees, local_tree_elements,matrix)
+            
+        dic_visited = {}
+                    
+        for key in present_trees:
+            dic_visited[key] = False
+
+        for n in range(max_n+1):
+                recorrido = ObservationsGenerator.rhombus_recorrido(local_position, n, matrix)
+                for i, j in recorrido:
+                    if re.match(r'^[0-9]$', matrix[i][j]):
+                        print(self.players_names)
+                        descriptions.append(f"Agent {self.players_names[int(matrix[i][j])]} is observed at a {ObservationsGenerator.n_thresholds(n)} distance from me.")
+                        position_descriptions.append({"type":"Agent","pos":(i,j),"id":matrix[i][j],"name":self.players_names[int(matrix[i][j])]})
+                    if (i,j) in dic_apples:
+                        if dic_visited[dic_apples[(i,j)]] == False:
+                            if n > 2:
+                                if (i,j) in dic_apples:
+                                    descriptions.append(f"Observing tree number {dic_apples[(i,j)]} at a {ObservationsGenerator.n_thresholds(n)} distance from me, that tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                                    position_descriptions.append({"type":"Tree","pos":(i,j),"id":dic_apples[(i,j)]})
+                            else:
+                                if (i,j) in dic_apples:
+                                    descriptions.append(f"Currently under tree number {dic_apples[(i,j)]}, that tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                                    #position_descriptions.append({"type":"Tree","pos":(i,j),"id":dic_apples[(i,j)]})
+                                
+                            dic_visited[dic_apples[(i,j)]] = True
+
+                    if matrix[i][j] == "A" and n<=max_vision_range_apples:
+                        if (i,j) in dic_apples:
+                            print(n)
+                            descriptions.append(f"Observing an apple {ObservationsGenerator.n_thresholds(n)} to me, belonging to tree {dic_apples[(i,j)]}.")
+                            position_descriptions.append({"type":"Apple","pos":(i,j),"id":None,"distance":n,"tree":dic_apples[(i,j)]})
+        
+        
+
+                    
+        return descriptions, position_descriptions
+    
+    
+
+    # TODO: Cuando esté en el repo quitar los parámetros que provienen de tener la info del objeto
+    def get_trees_and_agents_descriptions_v1(self, local_map:str, local_position:tuple, global_position:tuple, agent_orientation:int):
 
         max_vision_range_apples = 2
         max_vision_range_agents = 5
@@ -156,7 +218,7 @@ class ObservationsGenerator (object):
             recorrido = ObservationsGenerator.rhombus_recorrido(local_position, n, matrix)
             for i, j in recorrido:
                 if re.match(r'^[0-9]$', matrix[i][j]):
-                    descriptions.append(f"Observing agent {self.players_names[int(matrix[i][j])]} in a {ObservationsGenerator.n_thresholds(n)} distance to me.")
+                    descriptions.append(f"Observing agent {self.players_names[self.players_names[int(matrix[i][j])]]} in a {ObservationsGenerator.n_thresholds(n)} distance to me.")
                 if (i,j) in dic_apples:
                     if dic_visited[dic_apples[(i,j)]] == False:
                         if n > 2:
@@ -229,12 +291,14 @@ class ObservationsGenerator (object):
         """
         agents_observations = ast.literal_eval(agents_observations_str)
         observations_description_per_agent = {}
+        position_descriptions = {}
+
         for agent_name, agent_dict in agents_observations.items():
-            observations_description_per_agent[agent_name] = self.get_observations_per_agent(agent_dict, agent_name, True)
+            observations_description_per_agent[agent_name], position_descriptions[agent_name] = self.get_observations_per_agent(agent_dict, agent_name, True)
 
 
         logger.info(f' Observations descriptions for all agents: {observations_description_per_agent} \n')        
-        return observations_description_per_agent
+        return observations_description_per_agent, position_descriptions
     
 
     def get_observations_per_agent(self, agent_dict: dict, agent_name: str, is_observing: bool) -> list[str]:
@@ -250,12 +314,13 @@ class ObservationsGenerator (object):
             list: List with the descriptions of the observations of the agent
         """
         list_of_observations = []
+        position_descriptions = []
         if agent_dict['observation'].startswith('There are no observations: You were attacked'):
             list_of_observations.append(str(agent_dict['observation'] + ' At position {}'.format(agent_dict['global_position'])))
-            return list_of_observations
+            return list_of_observations, []
         elif agent_dict['observation'].startswith('There are no observations: you\'re out of the game'):
             list_of_observations.append(str(agent_dict['observation']))
-            return list_of_observations
+            return list_of_observations, []
         else:
             local_observation_map = agent_dict['observation']
             last_observation_map =  agent_dict['last_observation']
@@ -269,7 +334,7 @@ class ObservationsGenerator (object):
                 # Get trees descriptions
                 #trees_descriptions = self.get_trees_descriptions(local_observation_map, local_map_position, global_position, agent_orientation) 
                 #list_of_observations.extend(trees_descriptions)
-                descriptions = self.get_trees_and_agents_descriptions(local_observation_map, local_map_position, global_position, agent_orientation) 
+                descriptions,  position_descriptions = self.get_trees_and_agents_descriptions(local_observation_map, local_map_position, global_position, agent_orientation) 
                 list_of_observations.extend(descriptions)
 
             elif self.substrate_name == 'clean_up':
@@ -285,7 +350,7 @@ class ObservationsGenerator (object):
             #agents_observed = self.get_agents_observed(local_observation_map, local_map_position, global_position, agent_orientation)
             #list_of_observations.extend(agents_observed)
         
-        return list_of_observations
+        return list_of_observations, position_descriptions
     
     def update_state_changes(self, scene_description: dict, agents_observing: list[str], game_time: str):
         """Update the state changes of the agents

@@ -544,7 +544,8 @@ class Game:
         Returns:
             A dictionary with the observations of the player
         """
-        curr_state = self.observationsGenerator.get_all_observations_descriptions(str(self.curr_scene_description).strip())[player_prefix]
+        curr_state, position_descriptions = self.observationsGenerator.get_all_observations_descriptions(str(self.curr_scene_description).strip())
+        curr_state = curr_state[player_prefix]
         scene_description = self.curr_scene_description[player_prefix]
         if (check_agent_out_of_game(curr_state)):
             state_changes = []
@@ -554,7 +555,8 @@ class Game:
         return {
             'curr_state': curr_state,
             'scene_description': scene_description,
-            'state_changes': state_changes
+            'state_changes': state_changes,
+            'position_descriptions': position_descriptions
         }
     
     def get_time(self) -> str:
@@ -583,4 +585,17 @@ class Game:
         return self.curr_global_map
     
     def check_if_eating_apple(self, actions_map,scene_description):
+        # move fordward "move":1 up
+        # move right "move":2
+        # move down "move":3
+        # move left "move":4
+
+        # ignore if anything else
+        #if actions_map["move"]>0:
+        #    if actions_map["move"]==1:
+
+                
+
+
+
         logger.info(f'actions map {actions_map}, curr_global_map {self.curr_global_map}, scene_description {scene_description}')

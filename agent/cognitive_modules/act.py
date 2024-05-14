@@ -9,9 +9,36 @@ from utils.logging import CustomAdapter
 logger = logging.getLogger(__name__)
 logger = CustomAdapter(logger)
 
+def option_response_to_position(response, options, info_actions):
+    logger.info(f"AQUI ESTOY {response} {options} {info_actions}")
+    str_option = response.split(" ")
+    option_selected = None
+    qunatity_selected = 0
+    for option_real in options:
+        if option_real.lower() in str_option:
+            option_selected = option_real
+            qunatity_selected+=1
+    
+    if qunatity_selected>2:
+        raise "Error too many options match"
+    
+    index = options.index(option_selected)
+
+    res = info_actions[index]
+
+    if res[0] == "M":
+        return f'go to position ({res[1]},{res[2]})',option_selected
+    if res[0] == "I":
+        return f'immobilize player ({res[1]}) at ({res[2]},{res[3]})',option_selected
+    if res[0] == "S":
+        return f'stay put',option_selected
+    if res[0] == "E":
+        return f'explore',option_selected
 
 
-def actions_sequence(name:str, world_context:str, current_plan:str, reflections: str, current_observations:list[str]|str, current_position:tuple, valid_actions:list[str], current_goals: str, agent_bio: str = "", prompts_folder="base_prompts_v0", known_trees = "", explored_map = "0%", stm: ShortTermMemory = None) -> list[str]:
+
+
+def actions_sequence(name:str, world_context:str, current_plan:str, reflections: str, current_observations:list[str]|str, current_position:tuple, valid_actions:list[str], pos_l, options, current_goals: str, agent_bio: str = "", prompts_folder="base_prompts_v0", known_trees = "", explored_map = "0%", stm: ShortTermMemory = None) -> list[str]:
     """
     Description: Returns the actions that the agent should perform given its name, the world context, the current plan, the memory statements and the current observations
 
@@ -44,6 +71,14 @@ def actions_sequence(name:str, world_context:str, current_plan:str, reflections:
     previous_actions = f"You should consider that your previous actions were:  \n  -Action: {previous_actions[0]}: Reasoning: {previous_actions[1]}" 
     changes_in_state = stm.get_memory('changes_in_state')
     changes_in_state = '\n'.join(changes_in_state) if changes_in_state else None
+
+    dic_actions = {}
+    print("VALID",valid_actions)
+    for actionx in valid_actions:
+        
+        letter = actionx.split(":")[0].split(" ")[1]
+        action = actionx.split(":")[1]
+        dic_actions[letter]=action
     # Actions have to be generated 
     while actions_seq_queue.qsize() < 1:
         response = llm.completion(prompt=prompt_path, inputs=[name, world_context, str(current_plan), reflections, current_observations,
@@ -52,15 +87,18 @@ def actions_sequence(name:str, world_context:str, current_plan:str, reflections:
         response_dict = extract_answers(response.lower())
 
         try:
-            action = response_dict['answer']
+            logger.info("AQUI ESTOY XD 0")
+            response = response_dict['selected option']
+            action,option_selected = option_response_to_position(response,options,pos_l)
+            action_to_remember = dic_actions[option_selected]
             # Update previous actions
             try:    action_analysis = response_dict['final analysis']
             except: action_analysis = ""
-            stm.add_memory((action, action_analysis), 'previous_actions')   
-            
+            stm.add_memory((action_to_remember, action_analysis), 'previous_actions')   
+            logger.info("AQUI ESTOY XD")
             actions_seq_queue.put(action)
-        except:
-            logger.warning(f'Could not find action in the response_dict: {response_dict}')
+        except Exception as e:
+            logger.warning(f'XD Could not find action in the response_dict: {response_dict}')
             
 
 
