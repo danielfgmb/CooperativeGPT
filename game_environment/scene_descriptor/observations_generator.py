@@ -157,17 +157,17 @@ class ObservationsGenerator (object):
                 for i, j in recorrido:
                     if re.match(r'^[0-9]$', matrix[i][j]):
                         print(self.players_names)
-                        descriptions.append(f"Agent {self.players_names[int(matrix[i][j])]} is observed at a {ObservationsGenerator.n_thresholds(n)} distance from me.")
+                        descriptions.append(f"Agent {self.players_names[int(matrix[i][j])]} is observed at a {ObservationsGenerator.n_thresholds(n)} distance from me at position ({i},{j}).")
                         position_descriptions.append({"type":"Agent","pos":(i,j),"id":matrix[i][j],"name":self.players_names[int(matrix[i][j])]})
                     if (i,j) in dic_apples:
                         if dic_visited[dic_apples[(i,j)]] == False:
                             if n > 2:
                                 if (i,j) in dic_apples:
-                                    descriptions.append(f"Observing tree number {dic_apples[(i,j)]} at a {ObservationsGenerator.n_thresholds(n)} distance from me, that tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                                    descriptions.append(f"Observing tree number {dic_apples[(i,j)]} at a {ObservationsGenerator.n_thresholds(n)} distance from me, at position ({i},{j}), that tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
                                     position_descriptions.append({"type":"Tree","pos":(i,j),"id":dic_apples[(i,j)]})
                             else:
                                 if (i,j) in dic_apples:
-                                    descriptions.append(f"Currently under tree number {dic_apples[(i,j)]}, that tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                                    descriptions.append(f"Currently under tree number {dic_apples[(i,j)]}, that tree have {len(present_trees[dic_apples[(i,j)]])} apples. The closest branch of the tree is at position ({i},{j}).")
                                     #position_descriptions.append({"type":"Tree","pos":(i,j),"id":dic_apples[(i,j)]})
                                 
                             dic_visited[dic_apples[(i,j)]] = True
@@ -175,7 +175,7 @@ class ObservationsGenerator (object):
                     if matrix[i][j] == "A" and n<=max_vision_range_apples:
                         if (i,j) in dic_apples:
                             print(n)
-                            descriptions.append(f"Observing an apple {ObservationsGenerator.n_thresholds(n)} to me, belonging to tree {dic_apples[(i,j)]}.")
+                            descriptions.append(f"Observing an apple {ObservationsGenerator.n_thresholds(n)} to me, belonging to tree {dic_apples[(i,j)]} at position ({i},{j}).")
                             position_descriptions.append({"type":"Apple","pos":(i,j),"id":None,"distance":n,"tree":dic_apples[(i,j)]})
         
         
@@ -218,24 +218,24 @@ class ObservationsGenerator (object):
             recorrido = ObservationsGenerator.rhombus_recorrido(local_position, n, matrix)
             for i, j in recorrido:
                 if re.match(r'^[0-9]$', matrix[i][j]):
-                    descriptions.append(f"Observing agent {self.players_names[self.players_names[int(matrix[i][j])]]} in a {ObservationsGenerator.n_thresholds(n)} distance to me.")
+                    descriptions.append(f"Observing agent {self.players_names[self.players_names[int(matrix[i][j])]]} in a {ObservationsGenerator.n_thresholds(n)} distance to me at position ({i},{j}).")
                 if (i,j) in dic_apples:
                     if dic_visited[dic_apples[(i,j)]] == False:
                         if n > 2:
                             if (i,j) in dic_apples:
-                                descriptions.append(f"Observing the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                                descriptions.append(f"Observing the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples. The tree is at ({i},{j}) position")
                             else:
                                 logger.info(f'Error (1) en NEW descriptions DAGOMEZ apple in {(i,j)} not found')
                         else:
                             if (i,j) in dic_apples:
-                                descriptions.append(f"Currently under the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me, it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
+                                descriptions.append(f"Currently under the tree number {dic_apples[(i,j)]} in a {ObservationsGenerator.n_thresholds(n)} distance to me at position ({i},{j}), it can be seen from here these tree have {len(present_trees[dic_apples[(i,j)]])} apples.")
                             else:
                                 logger.info(f'Error (2) en NEW descriptions DAGOMEZ apple in {(i,j)} not found')
                         dic_visited[dic_apples[(i,j)]] = True
 
                 if matrix[i][j] == "A" and n<=max_vision_range_apples:
                     if (i,j) in dic_apples:
-                        descriptions.append(f"Currently observing an apple in a {ObservationsGenerator.n_thresholds(n)} distance to me, that apple belongs to tree {dic_apples[(i,j)]}.")
+                        descriptions.append(f"Currently observing an apple in a {ObservationsGenerator.n_thresholds(n)} distance to me, that apple belongs to tree {dic_apples[(i,j)]}, at position ({i},{j}).")
                     else:
                         logger.info(f'Error (2) en NEW descriptions DAGOMEZ apple in {(i,j)} not found')
         return descriptions

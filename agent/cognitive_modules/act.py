@@ -34,11 +34,14 @@ def option_response_to_position(response, options, info_actions):
         return f'stay put',option_selected
     if res[0] == "E":
         return f'explore',option_selected
+    if res[0] == "O":
+        return f'other',option_selected
 
 
 
 
-def actions_sequence(name:str, world_context:str, current_plan:str, reflections: str, current_observations:list[str]|str, current_position:tuple, valid_actions:list[str], pos_l, options, current_goals: str, agent_bio: str = "", prompts_folder="base_prompts_v0", known_trees = "", explored_map = "0%", stm: ShortTermMemory = None) -> list[str]:
+
+def actions_sequence(name:str, world_context:str, current_plan:str, reflections: str, current_observations:list[str]|str, current_position:tuple, valid_actions:list[str], valid_options:list[str], pos_l, options, finetuning_recorder, current_goals: str, agent_bio: str = "", prompts_folder="base_prompts_v0", known_trees = "", explored_map = "0%", stm: ShortTermMemory = None) -> list[str]:
     """
     Description: Returns the actions that the agent should perform given its name, the world context, the current plan, the memory statements and the current observations
 
@@ -72,25 +75,31 @@ def actions_sequence(name:str, world_context:str, current_plan:str, reflections:
     changes_in_state = stm.get_memory('changes_in_state')
     changes_in_state = '\n'.join(changes_in_state) if changes_in_state else None
 
-    dic_actions = {}
-    print("VALID",valid_actions)
-    for actionx in valid_actions:
+    dic_options = {}
+    print("VALID",valid_options)
+    for optionx in valid_options:
         
-        letter = actionx.split(":")[0].split(" ")[1]
-        action = actionx.split(":")[1]
-        dic_actions[letter]=action
+        letter = optionx.split(":")[0].split(" ")[1]
+        option = optionx.split(":")[1]
+        dic_options[letter]=option
     # Actions have to be generated 
     while actions_seq_queue.qsize() < 1:
-        response = llm.completion(prompt=prompt_path, inputs=[name, world_context, str(current_plan), reflections, current_observations,
-                                                              str(current_position), str(actions_seq_len), str(valid_actions), current_goals, agent_bio,
+        response = llm.completion(finetuning_recorder=finetuning_recorder,finetuning_key="action_llm",prompt=prompt_path, inputs=[name, world_context, str(current_plan), reflections, current_observations,
+                                                              str(current_position), str(actions_seq_len), str(valid_actions), str(valid_options), current_goals, agent_bio,
                                                               known_trees, explored_map, previous_actions, changes_in_state])
         response_dict = extract_answers(response.lower())
+        finetuning_recorder.add_value("response_raw",response_dict)
 
         try:
             logger.info("AQUI ESTOY XD 0")
             response = response_dict['selected option']
-            action,option_selected = option_response_to_position(response,options,pos_l)
-            action_to_remember = dic_actions[option_selected]
+            action = response_dict['action']
+            finetuning_recorder.add_value("response",response)
+            action_expected,option_selected = option_response_to_position(response,options,pos_l)
+            action_to_remember = dic_options[option_selected]
+            finetuning_recorder.add_value("action_to_remember",action_to_remember)
+            finetuning_recorder.add_value("action_expected",action_expected)
+            finetuning_recorder.add_value("action_executed",action)
             # Update previous actions
             try:    action_analysis = response_dict['final analysis']
             except: action_analysis = ""
@@ -99,6 +108,7 @@ def actions_sequence(name:str, world_context:str, current_plan:str, reflections:
             actions_seq_queue.put(action)
         except Exception as e:
             logger.warning(f'XD Could not find action in the response_dict: {response_dict}')
+            logger.warning(str(e))
             
 
 

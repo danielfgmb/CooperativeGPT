@@ -4,7 +4,7 @@ from utils.llm import extract_answers
 
 
 
-def reflect_questions(name: str , world_context:str, statements: list[str]|str, agent_bio: str = "",  prompts_folder = "base_prompts_v0" ) -> list[str]:
+def reflect_questions(name: str , world_context:str, statements: list[str]|str, agent_bio: str = "",  prompts_folder = "base_prompts_v0", finetuning_recorder=None ) -> list[str]:
     """
     Description: Returns the relevant questions for the agent given its name, the world context and the statements
 
@@ -31,7 +31,7 @@ def reflect_questions(name: str , world_context:str, statements: list[str]|str, 
     except ValueError as e:
         if str(e) == 'Prompt is too long':
             llm = LLMModels().get_longer_context_fallback() 
-            response = llm.completion(prompt=prompt_path, inputs=[name, world_context, statements, agent_bio])
+            response = llm.completion(prompt=prompt_path, finetuning_recorder=finetuning_recorder, finetuning_key="reflect_questions",inputs=[name, world_context, statements, agent_bio])
             relevant_questions_dict = extract_answers(response)
             relevant_questions = [q['Question'] for q in relevant_questions_dict.values()]
         else:
@@ -41,7 +41,7 @@ def reflect_questions(name: str , world_context:str, statements: list[str]|str, 
 
 
 
-def reflect_insights(name, world_context, memory_statements, questions: list[str], agent_bio: str = "", prompts_folder = "base_prompts_v0" ) -> list[str]:
+def reflect_insights(name, world_context, memory_statements, questions: list[str], agent_bio: str = "", prompts_folder = "base_prompts_v0",finetuning_recorder=None ) -> list[str]:
     """
     Description: Returns the insights for the agent given its name, the world context and the memory statements
     
@@ -68,7 +68,7 @@ def reflect_insights(name, world_context, memory_statements, questions: list[str
     except ValueError as e:
         if str(e) == 'Prompt is too long':
             llm = LLMModels().get_longer_context_fallback()
-            response = llm.completion(prompt=prompt_path, inputs=[name, world_context, memory_statements, agent_bio])
+            response = llm.completion(prompt=prompt_path, finetuning_recorder=finetuning_recorder, finetuning_key="reflect_insights",inputs=[name, world_context, memory_statements, agent_bio])
             insights_dict = extract_answers(response)
             insights = [i['Insight'] for i in insights_dict.values()]
         else:

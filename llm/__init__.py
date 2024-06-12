@@ -1,4 +1,5 @@
 from llm.openai import GPT35, Ada, GPT35_16K, GPT4
+from llm.llama3_finetuning import LLaMA3
 from llm.base_llm import BaseLLM
 
 class LLMModels():
@@ -13,10 +14,11 @@ class LLMModels():
             "gpt-3.5": GPT35(),
             "gpt-3.5-16k": GPT35_16K(),
             "gpt-4": GPT4(),
-            "ada": Ada()
+            "ada": Ada(),
+            "llama-3b-instruct": LLaMA3()
             }
-            self.instance.main_model = "gpt-3.5"
-            self.instance.best_model = "gpt-3.5" # Avoid using gpt-4 for now
+            self.instance.main_model = "llama-3b-instruct"
+            self.instance.best_model = "llama-3b-instruct" # Avoid using gpt-4 for now
             self.instance.longer_context_fallback = "gpt-3.5-16k"
             self.instance.embedding_model = "ada"
         return self.instance

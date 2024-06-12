@@ -3,7 +3,7 @@ from llm import LLMModels
 from utils.llm import extract_answers
 from agent.memory_structures.short_term_memory import ShortTermMemory
 
-def should_react(name: str, world_context: str, observations: list[str], current_plan: str, actions_queue: list[str], changes_in_state: list[str], game_time: str, agent_bio: str = "", prompts_folder = "base_prompts_v0" ) -> tuple[bool, str]:
+def should_react(name: str, world_context: str, observations: list[str], current_plan: str, actions_queue: list[str], changes_in_state: list[str], game_time: str, agent_bio: str = "", prompts_folder = "base_prompts_v0", finetuning_recorder=None ) -> tuple[bool, str]:
     """Decides if the agent should react to the observation.
 
     Args:
@@ -31,7 +31,7 @@ def should_react(name: str, world_context: str, observations: list[str], current
     if changes_in_state:
         changes_in_state = f'The following changes in the environment were observed:\n{changes_in_state}'
     actions_queue = ', '.join([f'{i+1}.{action}' for i, action in enumerate(actions_queue)]) if len(actions_queue) > 0 else 'None'
-    response = llm.completion(prompt=prompt_path, inputs=[name, world_context, observation, current_plan, actions_queue, changes_in_state, game_time, agent_bio])
+    response = llm.completion(prompt=prompt_path, finetuning_recorder=finetuning_recorder, finetuning_key="perceive", inputs=[name, world_context, observation, current_plan, actions_queue, changes_in_state, game_time, agent_bio])
     answers = extract_answers(response)
     answer = answers.get('Answer', False)
     reasoning = answers.get('Reasoning', '')

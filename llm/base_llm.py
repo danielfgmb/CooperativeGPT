@@ -163,7 +163,7 @@ class BaseLLM(ABC):
             raise ValueError("Not enough inputs passed to the prompt")
         return prompt
 
-    def completion(self, prompt: str, **kwargs) -> str:
+    def completion(self, prompt: str, finetuning_recorder = None, finetuning_key=None, **kwargs) -> str:
         """Method for the completion api. It updates the cost of the prompt and response and log the tokens and prompts
         Args:
             prompt (str): Prompt file or string for the completion
@@ -179,9 +179,18 @@ class BaseLLM(ABC):
         if self._calculate_tokens(prompt) > self.max_tokens * self.max_tokens_ratio_per_input:
             raise ValueError("Prompt is too long")
         
+        if finetuning_recorder != None:
+            finetuning_recorder.add_value(finetuning_key+"_prompt",prompt)
+        
         self.logger.info(f"Prompt: {prompt}")
+
+
         kwargs.pop("inputs", None) # Remove the inputs from the kwargs to avoid passing them to the completion api
         response, prompt_tokens, response_tokens = self._completion(prompt, **kwargs)
+
+        if finetuning_recorder != None:
+            finetuning_recorder.add_value(finetuning_key+"_response",response)
+
         self.logger.info(f"Response: {response}")
 
         self._update_costs(prompt_tokens, response_tokens)

@@ -422,7 +422,7 @@ class Game:
         for prefix in self.player_prefixes:
             logger.info('Player %s: score is %g' % (prefix, self.score[prefix]))
 
-    def step(self, current_actions_map:dict) -> dict[int, list[str]] | None:
+    def step(self, current_actions_map:dict,finetuning_recorder=None) -> dict[int, list[str]] | None:
         """Run one step of the game.
         
         Args:
@@ -520,10 +520,18 @@ class Game:
         # Get the raw observations from the environment after the actions are executed
         description, curr_global_map = self.descriptor.describe_scene(self.timestep)
 
+        if finetuning_recorder != None:
+            finetuning_recorder.add_value("final_rewards",dict(rewards))
+            finetuning_recorder.add_value("ascii_map",self.game_ascii_map)
+
         # Record the game
         if self.record:
+
+            
+
             self.game_recorder.record(self.timestep, description)
             self.game_recorder.record_rewards(rewards)
+            
             self.game_recorder.record_elements_status(self.game_ascii_map, curr_global_map, agents_observing)
             self.game_recorder.record_scene_tracking(self.time, curr_global_map, description)
             self.record_counter += 1

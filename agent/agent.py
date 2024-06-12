@@ -83,7 +83,7 @@ class Agent:
             self.ltm.load_memories_from_scene(scene_path = start_from_scene, agent_name=name)
             self.stm.load_memories_from_scene(scene_path = start_from_scene, agent_name=name)
 
-    def move(self, observations: list[str], agent_current_scene:dict, changes_in_state: list[tuple[str, str]], position_descriptions:dict, game_time: str, agent_reward: float = 0, agent_is_out:bool = False) -> Queue:
+    def move(self, observations: list[str], agent_current_scene:dict, changes_in_state: list[tuple[str, str]], position_descriptions:dict, game_time: str, finetuning_recorder, agent_reward: float = 0, agent_is_out:bool = False) -> Queue:
         """Use all the congnitive sequence of the agent to decide an action to take
 
         Args:
@@ -101,6 +101,8 @@ class Agent:
         Returns:
             Queue: Steps sequence for the current action.
         """
+        #finetuning_recorder.add_value("cumulative_reward_before",agent_reward)
+
         if self.mode == 'cooperative':
             return self.move_cooperative(observations, agent_current_scene, changes_in_state, game_time, agent_reward, agent_is_out)
         
@@ -113,16 +115,16 @@ class Agent:
         #Updates the position of the agent in the spatial memory 
         self.spatial_memory.update_current_scene(agent_current_scene['global_position'], agent_current_scene['orientation'],\
                                                     agent_current_scene['observation'])
-        react, filtered_observations, state_changes = self.perceive(observations, changes_in_state, game_time, agent_reward)
+        react, filtered_observations, state_changes = self.perceive(finetuning_recorder, observations, changes_in_state, game_time, agent_reward, )
 
         
         if react:
-            self.plan()
-            self.generate_new_actions(position_descriptions)
+            self.plan(finetuning_recorder=finetuning_recorder)
+            self.generate_new_actions(position_descriptions, finetuning_recorder)
         
-        self.reflect(filtered_observations)
+        self.reflect(filtered_observations,finetuning_recorder=finetuning_recorder)
         
-        step_actions = self.get_actions_to_execute(position_descriptions)
+        step_actions = self.get_actions_to_execute(position_descriptions, finetuning_recorder)
             
         return step_actions
     
@@ -167,7 +169,7 @@ class Agent:
             
         return step_actions
 
-    def perceive(self, observations: list[str], changes_in_state: list[tuple[str, str]], game_time: str, reward: float, is_agent_out: bool = False) -> tuple[bool, list[str], list[str]]:
+    def perceive(self, finetuning_recorder, observations: list[str], changes_in_state: list[tuple[str, str]], game_time: str, reward: float, is_agent_out: bool = False) -> tuple[bool, list[str], list[str]]:
         """Perceives the environment and stores the observation in the long term memory. Decide if the agent should react to the observation.
         It also filters the observations to only store the closest ones, and asign a poignancy to the observations.
         Game time is also stored in the short term memory.
@@ -217,6 +219,8 @@ class Agent:
         last_reward = self.stm.get_memory('current_reward') or 0.0
         self.stm.add_memory(reward, 'current_reward')
         self.stm.add_memory(last_reward, 'last_reward')
+        finetuning_recorder.add_value("current_reward",reward)
+        finetuning_recorder.add_value("last_reward",reward)
         last_position = self.stm.get_memory('current_position') or self.spatial_memory.position
         self.stm.add_memory(self.spatial_memory.position, 'current_position')
         self.stm.add_memory(last_position, 'last_position')
@@ -227,12 +231,12 @@ class Agent:
         world_context = self.stm.get_memory('world_context')
         agent_bio_str = self.stm.get_memory('bio_str')
         actions_sequence = list_from_queue(copy.copy(self.stm.get_memory('actions_sequence')))
-        react, reasoning = should_react(self.name, world_context, observations, current_plan, actions_sequence, changes, game_time, agent_bio_str, self.prompts_folder)
+        react, reasoning = should_react(self.name, world_context, observations, current_plan, actions_sequence, changes, game_time, agent_bio_str, self.prompts_folder, finetuning_recorder=finetuning_recorder)
         self.stm.add_memory(reasoning, 'reason_to_react')
         self.logger.info(f'{self.name} should react to the observation: {react}')
         return react, observations, changes
     
-    def plan(self,) -> None:
+    def plan(self,finetuning_recorder=None) -> None:
         """Plans the next actions of the agent and its main goals.
         """
 
@@ -247,7 +251,7 @@ class Agent:
         reason_to_react = self.stm.get_memory('reason_to_react')
         assert reason_to_react is not None, 'Reason to react is None. This should not happen because the agent only plans if it should react to the observation'
 
-        new_plan, new_goals = plan(self.name, world_context, current_observation, current_plan, reflections, reason_to_react, agent_bio_str, self.prompts_folder, changes_in_state=changes_in_state)
+        new_plan, new_goals = plan(self.name, world_context, current_observation, current_plan, reflections, reason_to_react, agent_bio_str, self.prompts_folder, changes_in_state=changes_in_state, finetuning_recorder=finetuning_recorder)
         self.logger.info(f'{self.name} new plan: {new_plan}, new goals: {new_goals}')
         if new_plan is None or new_goals is None:
             self.logger.warn(f'{self.name} could not generate a new plan or new goals')
@@ -257,7 +261,7 @@ class Agent:
         self.stm.add_memory(new_goals, 'current_goals')
 
 
-    def reflect(self, filtered_observations:list[str]) -> None:
+    def reflect(self, filtered_observations:list[str], finetuning_recorder=None) -> None:
         """Reflects on the agent's observations and stores the insights reflections in the long term memory.
 
         Args:
@@ -290,7 +294,7 @@ class Agent:
         agent_bio_str = self.stm.get_memory('bio_str')
 
         # Get the relevant questions
-        relevant_questions = reflect_questions(self.name, world_context, observations_str, agent_bio_str, self.prompts_folder)
+        relevant_questions = reflect_questions(self.name, world_context, observations_str, agent_bio_str, self.prompts_folder, finetuning_recorder=finetuning_recorder)
         self.logger.info(f'{self.name} relevant questions: {relevant_questions}')
         # Get the relevant memories for each question, relevant memories is a list of lists
         relevant_memories_list = [] 
@@ -303,7 +307,7 @@ class Agent:
         # Convert the relevant memories list to a list of strings
         self.logger.info(f'{self.name} relevant memories: {relevant_memories_list}')
         # Get the insights reflections
-        reflections = reflect_insights(self.name, world_context, relevant_memories_list, relevant_questions, agent_bio_str, self.prompts_folder)
+        reflections = reflect_insights(self.name, world_context, relevant_memories_list, relevant_questions, agent_bio_str, self.prompts_folder,finetuning_recorder=finetuning_recorder)
         self.logger.info(f'{self.name} reflections: {reflections}')
         # Add the reflections to the long term memory, checks if the reflection  is not empty
         for reflection in reflections:
@@ -336,6 +340,8 @@ class Agent:
         dic_xd = {"world_context":world_context,"agent_bio_str":agent_bio_str, "current_plan": current_plan, "valid_actions": valid_actions, "observations": observations, "current_goals":current_goals,  "reflections": reflections, "known_trees": known_trees}
         self.xd.append(dic_xd)
         tb.save_json(self.xd, "generate_new_actions.json")
+
+    
     
 
     def generate_valid_actions(self,position_descriptions):
@@ -377,6 +383,10 @@ class Agent:
         pos = tuple("S")
         pos_l.append(pos)
 
+        valid_actions.append(f"Move to another location: This action involves relocating to a previously known position that is currently outside the visible map.")
+        pos = tuple("O")
+        pos_l.append(pos)
+
         for i in range(len(valid_actions)):
             valid_actions[i] = f"Option {chr(letter_pos+64)}: "+valid_actions[i]
             options.append(chr(letter_pos+64))
@@ -388,7 +398,7 @@ class Agent:
 
 
 
-    def generate_new_actions(self,position_descriptions) -> None:
+    def generate_new_actions(self,position_descriptions,finetuning_recorder) -> None:
         self.generate_new_actions2()
         """
         Acts in the environment given the observations, the current plan and the current goals.
@@ -397,7 +407,7 @@ class Agent:
         world_context = self.stm.get_memory('world_context')
         agent_bio_str = self.stm.get_memory('bio_str')
         current_plan = self.stm.get_memory('current_plan')
-        #valid_actions = self.stm.get_memory('valid_actions') 
+        valid_actions = self.stm.get_memory('valid_actions') 
         observations = self.stm.get_memory('current_observation') or 'None'
         current_goals = self.stm.get_memory('current_goals')
         reflections = self.ltm.get_memories(limit=10, filter={'type': 'reflection'})['documents']
@@ -406,12 +416,16 @@ class Agent:
         known_trees = self.stm.get_memory('known_trees')
         known_trees = "These are the known trees: "+' '.join([f"tree {tree[0]} with center at {tree[1]}" for tree in known_trees]) if known_trees else "There are no known trees yet"
 
-        valid_actions, pos_l, options = self.generate_valid_actions(position_descriptions)
+        valid_options, pos_l, options = self.generate_valid_actions(position_descriptions)
+        finetuning_recorder.add_value("valid_actions",valid_actions)
+        finetuning_recorder.add_value("valid_options",valid_options)
+        finetuning_recorder.add_value("pos_l",pos_l)
+        finetuning_recorder.add_value("options",options)
         percentage_explored = self.spatial_memory.get_percentage_explored()
         
         # Generate new actions sequence and add it to the short term memory
         actions_sequence_queue = actions_sequence(self.name, world_context, current_plan, reflections, observations,
-                                                  current_position, valid_actions, pos_l, options, current_goals, agent_bio_str, self.prompts_folder,
+                                                  current_position, valid_actions, valid_options, pos_l, options, finetuning_recorder, current_goals, agent_bio_str, self.prompts_folder,
                                                   known_trees, percentage_explored, self.stm)
         self.logger.info(f'{self.name} generated new actions sequence: {actions_sequence_queue.queue}')
         
@@ -421,7 +435,7 @@ class Agent:
 
 
 
-    def get_actions_to_execute(self, position_descriptions) -> Queue:
+    def get_actions_to_execute(self, position_descriptions, finetuning_recorder) -> Queue:
         """
         Executes the current actions of the agent. 
         If the current gameloop is empty, it generates a new one.
@@ -435,7 +449,7 @@ class Agent:
 
             # If the actions sequence is empty, we generate actions sequence
             if self.stm.get_memory('actions_sequence').empty():
-                self.generate_new_actions(position_descriptions)
+                self.generate_new_actions(position_descriptions,finetuning_recorder)
 
             # We get next action from the actions sequence
             current_action = self.stm.get_memory('actions_sequence').get()

@@ -1,7 +1,7 @@
 import re
 import json
 from chromadb import Documents, EmbeddingFunction, Embeddings
-
+import traceback
 from llm import LLMModels
 
 def extract_answers(response: str) -> dict[str, str]:
@@ -15,12 +15,26 @@ def extract_answers(response: str) -> dict[str, str]:
     """
     patt = re.compile(r'\s*```json\s*([\w\W\n\r\t]*?)\s*```\s*', re.MULTILINE)
     try:
-        response = response.replace('\n', ' ') # Remove new lines to avoid errors on multiline double quotes
-        answers = re.findall(patt, response)[0].strip() # Get the first json part of the response
-        answers =  re.sub(r'(:\s*"[^"]+")\s*("[^"]+"\s*:)', r'\1, \2', answers) # Add missing commas between items
-        answers = re.sub(r'"\s*,\s*}', '"}', answers) # Remove commas before the closing bracket
-        parsed_answers = json.loads(answers)
-    except:
+        
+        print("JUJUJU")
+        json_string = re.sub(r'\\[^\n]*', "",response)
+        print("JOJOJOJ",json_string)
+        response = json_string.replace('\n', ' ') # Remove new lines to avoid errors on multiline double quotes
+        answers = response.replace("```json","")
+        answers = answers.replace("```","")
+        #answers = re.findall(patt, response)[0].strip() # Get the first json part of the response
+        print("JUJUJU2",answers)
+        try:
+            parsed_answers = json.loads(answers)
+
+        except Exception:
+            print(traceback.format_exc())
+            answers =  re.sub(r'(:\s*"[^"]+")\s*("[^"]+"\s*:)', r'\1, \2', answers) # Add missing commas between items
+            answers = re.sub(r'"\s*,\s*}', '"}', answers) # Remove commas before the closing bracket
+            parsed_answers = json.loads(answers)
+    except Exception:
+        print(traceback.format_exc())
+        print("FAIIL")
         parsed_answers = {}
     return parsed_answers
 
